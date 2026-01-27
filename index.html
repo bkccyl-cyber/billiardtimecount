@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>專業賽事系統 - 終極特效整合版</title>
+    <title>專業賽事系統 - GitHub 部署版</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg: #000; --green: #00ff00; --red: #ff3b30; --blue: #007aff; --btn: #2a2a2a; --yellow: #ffcc00; --orange: #ff9500; --purple: #af52de; }
@@ -18,13 +18,14 @@
 
         /* 分數區域 */
         .score-row { display: flex; height: 32%; border-bottom: 2px solid #333; flex-shrink: 0; }
-        .team { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; cursor: pointer; }
+        .team { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; cursor: pointer; transition: filter 0.1s; }
+        .team:active { filter: brightness(1.5); }
         .team-a { background: var(--red); }
         .team-b { background: var(--blue); }
-        .team-name { font-size: 1.5rem; font-weight: bold; margin-bottom: -5px; }
-        .score-val { font-size: 14vh; font-weight: bold; line-height: 1; }
+        .team-name { font-size: 1.5rem; font-weight: bold; margin-bottom: -5px; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+        .score-val { font-size: 14vh; font-weight: bold; line-height: 1; text-shadow: 3px 3px 6px rgba(0,0,0,0.5); }
 
-        /* 標籤樣式 (EXT, T.O.) */
+        /* 標籤樣式 */
         .tag-container { position: absolute; bottom: 8px; display: flex; gap: 5px; }
         .ext-tag, .to-tag { padding: 2px 12px; font-weight: 900; border-radius: 4px; display: none; font-size: 1rem; }
         .ext-tag { background: var(--yellow); color: #000; animation: flash 1s infinite; }
@@ -36,26 +37,23 @@
         #timer-display { font-size: 32vh; font-weight: bold; color: var(--green); line-height: 0.8; transition: all 0.3s; }
         
         .timeout-active { color: var(--purple) !important; }
-        .warning { color: var(--red) !important; animation: blink 0.5s infinite alternate; }
-        .status-text { font-size: 14px; color: #666; letter-spacing: 5px; position: absolute; top: 10%; font-weight: bold; }
+        .warning { color: var(--red) !important; animation: blink 0.5s infinite alternate; transform: scale(1.1); }
+        .status-text { font-size: 14px; color: #666; letter-spacing: 5px; position: absolute; top: 10%; font-weight: bold; text-transform: uppercase; }
 
-        /* 控制按鈕區域 */
+        /* 控制按鈕 */
         .controls { height: 35%; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 8px; background: #111; }
         .btn { border: none; border-radius: 10px; color: #fff; background: var(--btn); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s; }
         .btn:active { transform: scale(0.95); background: #444; }
         .btn-k { font-size: 1.1rem; font-weight: bold; }
-        .btn-sub { font-size: 0.9rem; opacity: 0.8; }
+        .btn-sub { font-size: 0.8rem; opacity: 0.8; }
 
-        /* 勝利特效樣式 */
+        /* 特效 */
         .victory-a { background: var(--red) !important; animation: win-flash 0.5s infinite alternate; }
         .victory-b { background: var(--blue) !important; animation: win-flash 0.5s infinite alternate; }
         .winner-text { font-size: 15vh !important; color: white !important; }
-
-        /* 隱藏按鈕模式 (觀眾/選手螢幕用) */
         .hidden-mode .controls { display: none; }
         .hidden-mode .score-row { height: 40%; }
         .hidden-mode #timer-display { font-size: 45vh; }
-        .hidden-mode .race-to-display { font-size: 2rem; }
 
         @keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         @keyframes blink { from { opacity: 1; } to { opacity: 0.3; } }
@@ -109,7 +107,6 @@
     </div>
 
     <script>
-        // 變數初始化
         let timeLeft = 0, timerId = null, scores = { A: 0, B: 0 }, config = { key0: 30, key2: 60, raceTo: 0 };
         let isPaused = false, isTimeoutMode = false, lastNormalTime = 0, isGameOver = false;
         let peer = null, conn = null, audioCtx = null;
@@ -120,11 +117,12 @@
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 const b = audioCtx.createBuffer(1, 1, 22050), s = audioCtx.createBufferSource();
                 s.buffer = b; s.connect(audioCtx.destination); s.start();
-                document.getElementById('status-text').innerText = "系統已就緒";
+                document.getElementById('status-text').innerText = "系統就緒";
             }
         }
 
         function playBeep(f, d) {
+            if(!audioCtx) return;
             try {
                 const o = audioCtx.createOscillator(), g = audioCtx.createGain();
                 o.frequency.setValueAtTime(f, audioCtx.currentTime);
@@ -133,28 +131,44 @@
             } catch(e) {}
         }
 
-        // PeerJS 遠端連線邏輯
+        // PeerJS 初始化 (針對 GitHub 優化)
         function initPeer() {
-            const rid = Math.floor(1000 + Math.random() * 9000).toString();
+            // 使用隨機 6 位數避免 GitHub 使用者撞號
+            const rid = "MSG-" + Math.floor(100000 + Math.random() * 900000).toString();
             peer = new Peer(rid);
+            
             peer.on('open', (id) => { 
                 document.getElementById('peer-id-display').innerText = id; 
                 document.getElementById('conn-dot').className = "status-dot online"; 
             });
+
             peer.on('connection', (c) => { 
                 conn = c; 
                 conn.on('data', (d) => processCommand(d)); 
-                conn.on('open', () => document.getElementById('conn-dot').style.boxShadow = "0 0 15px var(--blue)");
+                conn.on('open', () => {
+                    document.getElementById('conn-dot').style.boxShadow = "0 0 15px var(--blue)";
+                    // 連接時同步目前狀態給對方
+                    syncAllToPeer();
+                });
             });
-            peer.on('error', () => setTimeout(initPeer, 3000));
+
+            peer.on('disconnected', () => peer.reconnect());
+            peer.on('error', (err) => {
+                console.error(err);
+                setTimeout(initPeer, 5000);
+            });
         }
 
-        function handleInput(cmd) { if (conn && conn.open) conn.send(cmd); processCommand(cmd); }
+        function handleInput(cmd) {
+            if (cmd === 'resetAll' && !confirm("確定要將所有分數與計時歸零嗎？")) return;
+            if (conn && conn.open) conn.send(cmd); 
+            processCommand(cmd); 
+            saveToLocal();
+        }
 
-        // 核心指令處理
         function processCommand(cmd) {
             unlockAudio();
-            if (isGameOver && cmd !== 'resetAll') return; // 獲勝後鎖定按鈕
+            if (isGameOver && cmd !== 'resetAll') return;
 
             if (cmd === 'start_30') { stopTimeout(); startTimer(config.key0); }
             else if (cmd === 'start_60') { stopTimeout(); startTimer(config.key2); }
@@ -172,14 +186,15 @@
                 const n = JSON.parse(cmd.split('names:')[1]);
                 document.getElementById('nameA').innerText = n.a; 
                 document.getElementById('nameB').innerText = n.b;
+                saveToLocal();
             }
             else if (cmd.startsWith('config:')) {
                 config = JSON.parse(cmd.split('config:')[1]);
                 updateButtonLabels(); updateRaceToUI();
+                saveToLocal();
             }
         }
 
-        // 計時器邏輯
         function startTimer(sec) {
             if (timerId) clearInterval(timerId);
             timeLeft = Number(sec); isPaused = false; 
@@ -195,7 +210,7 @@
                     if (timeLeft <= 0) { 
                         clearInterval(timerId); timerId = null; 
                         document.getElementById('status-text').innerText = "TIME UP"; 
-                        playBeep(440, 1.0); 
+                        playBeep(440, 0.8); 
                     }
                 }
             }, 1000);
@@ -209,7 +224,6 @@
             d.className = (isTimeoutMode ? "timeout-active " : "") + (timeLeft <= 5 && timeLeft > 0 && !isPaused ? "warning" : "");
         }
 
-        // 勝負與特效邏輯
         function checkWinner() {
             if (config.raceTo > 0) {
                 if (scores.A >= config.raceTo) showVictory('A');
@@ -225,26 +239,8 @@
             document.getElementById('timer-display').innerText = "WINNER";
             document.getElementById('timer-display').classList.add('winner-text');
             document.getElementById('status-text').innerText = name + " 獲勝！";
-            // 勝利音效
             playBeep(600, 0.2); setTimeout(() => playBeep(800, 0.2), 200); setTimeout(() => playBeep(1000, 0.5), 400);
         }
-
-        // 各種功能控制
-        function togglePause() { 
-            if (timerId || timeLeft > 0) { 
-                isPaused = !isPaused; 
-                document.getElementById('status-text').innerText = isPaused ? "PAUSED" : "COUNTING"; 
-            } 
-        }
-
-        function toggleTimeout(t) { 
-            if (isTimeoutMode) { stopTimeout(); return; } 
-            lastNormalTime = timeLeft; isTimeoutMode = true; 
-            document.getElementById('to'+t).style.display = 'block'; // 保留標籤直到 Reset
-            startTimer(300); 
-        }
-
-        function stopTimeout() { if (!isTimeoutMode) return; isTimeoutMode = false; startTimer(lastNormalTime); }
 
         function resetEverything() {
             if (timerId) clearInterval(timerId);
@@ -257,6 +253,7 @@
             document.getElementById('timer-display').classList.remove('winner-text');
             updateDisplay(); updateRaceToUI();
             document.getElementById('status-text').innerText = "READY";
+            localStorage.removeItem('match_backup');
         }
 
         function updateScore(t, v) { 
@@ -264,11 +261,28 @@
             document.getElementById(`score${t}`).innerText = scores[t]; 
         }
 
+        function togglePause() { 
+            if (timerId || timeLeft > 0) { 
+                isPaused = !isPaused; 
+                document.getElementById('status-text').innerText = isPaused ? "PAUSED" : "COUNTING"; 
+            } 
+        }
+
+        function toggleTimeout(t) { 
+            if (isTimeoutMode) { stopTimeout(); return; } 
+            lastNormalTime = timeLeft; isTimeoutMode = true; 
+            document.getElementById('to'+t).style.display = 'block';
+            startTimer(300); 
+        }
+
+        function stopTimeout() { if (!isTimeoutMode) return; isTimeoutMode = false; startTimer(lastNormalTime); }
+
         function showExt(t) { document.getElementById('ext'+t).style.display='block'; }
         function clearExt() { document.getElementById('extA').style.display='none'; document.getElementById('extB').style.display='none'; }
         function addTime(s) { timeLeft += s; updateDisplay(); if (!timerId) startTimer(timeLeft); }
 
         function updateButtonLabels() {
+            const labels = ['btn-text-start', 'btn-text-open', 'btn-text-extA', 'btn-text-extB'];
             document.getElementById('btn-text-start').innerText = config.key0 + "s";
             document.getElementById('btn-text-open').innerText = config.key2 + "s";
             document.getElementById('btn-text-extA').innerText = "+" + config.key0 + "s";
@@ -279,14 +293,41 @@
             document.getElementById('race-to-text').innerText = config.raceTo > 0 ? `RACE TO ${config.raceTo}` : "RACE TO --"; 
         }
 
-        // 設定選單
+        // 本地儲存
+        function saveToLocal() {
+            const data = {
+                scores, config, 
+                nameA: document.getElementById('nameA').innerText,
+                nameB: document.getElementById('nameB').innerText
+            };
+            localStorage.setItem('match_backup', JSON.stringify(data));
+        }
+
+        function loadFromLocal() {
+            const saved = localStorage.getItem('match_backup');
+            if (saved) {
+                const d = JSON.parse(saved);
+                scores = d.scores; config = d.config;
+                document.getElementById('nameA').innerText = d.nameA;
+                document.getElementById('nameB').innerText = d.nameB;
+                updateScore('A', 0); updateScore('B', 0);
+                updateButtonLabels(); updateRaceToUI();
+            }
+        }
+
+        function syncAllToPeer() {
+            if (conn && conn.open) {
+                conn.send("config:" + JSON.stringify(config));
+                conn.send("names:" + JSON.stringify({a: document.getElementById('nameA').innerText, b: document.getElementById('nameB').innerText}));
+            }
+        }
+
         function setupTimes() {
             const s1 = Number(prompt("設定 Start 秒數：", config.key0)) || 30;
             const s2 = Number(prompt("設定 Open Time 秒數：", config.key2)) || 60;
             const r = Number(prompt("設定搶局數 (Race To)：", config.raceTo)) || 0;
             config.key0 = s1; config.key2 = s2; config.raceTo = r;
-            updateButtonLabels(); updateRaceToUI();
-            if (conn && conn.open) conn.send("config:" + JSON.stringify(config));
+            handleInput("config:" + JSON.stringify(config));
         }
 
         function changeNames() {
@@ -300,9 +341,18 @@
             document.getElementById('mode-btn').innerText = document.body.classList.contains('hidden-mode') ? "顯示控制" : "隱藏控制";
         }
 
-        function connectToPeer() { const rid = prompt("輸入對手 ID："); if(rid) conn = peer.connect(rid); }
+        function connectToPeer() { 
+            const rid = prompt("請輸入對方的 ID (例如 MSG-xxxxxx)："); 
+            if(rid) {
+                conn = peer.connect(rid);
+                conn.on('open', () => {
+                    alert("連線成功！");
+                    syncAllToPeer();
+                });
+            } 
+        }
 
-        window.onload = () => { initPeer(); updateButtonLabels(); updateRaceToUI(); };
+        window.onload = () => { loadFromLocal(); initPeer(); };
     </script>
 </body>
 </html>
