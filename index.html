@@ -3,24 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>專業賽事計分板 - V4.9 Ref Colors</title>
+    <title>專業賽事計分板 - V5.0 Layout Fixed</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/simple-peer/9.11.1/simplepeer.min.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     
     <style>
-        /* 採用參考代碼的配色變數 */
         :root { 
-            --bg: #0a0e14;          /* 參考代碼背景 */
-            --blue: #326eff;        /* 參考代碼藍 */
+            --bg: #0a0e14;
+            --blue: #326eff;
             --blue-hover: #2558d4;
-            --red: #e32d2d;         /* 參考代碼紅 */
+            --red: #e32d2d;
             --red-hover: #c52020;
-            --green: #00ff00;       /* 參考代碼綠 */
-            --purple: #af52de;      /* 參考代碼紫 */
-            --yellow: #ffeb3b;      /* 參考代碼黃 */
+            --green: #00ff00;
+            --purple: #af52de;
+            --yellow: #ffeb3b;
             --btn-dark: #1a1a1a;
-            --center-border: #334155;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; -webkit-user-select: none; }
@@ -44,13 +42,8 @@
         }
         .hidden-header:hover { opacity: 1; }
         .setting-btn {
-            background: #222;
-            border: 1px solid #444;
-            color: #888;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 0.8rem;
-            cursor: pointer;
+            background: #222; border: 1px solid #444; color: #888;
+            padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer;
         }
 
         .main-stage { 
@@ -59,18 +52,30 @@
             position: relative; 
             align-items: center;
             justify-content: center;
+            width: 100%;
         }
 
-        /* --- 中央大計時器 --- */
+        /* --- 計時器區域 --- */
         .center-timer-overlay {
             position: absolute;
-            top: 50%;
-            left: 50%;
+            top: 50%; left: 50%;
             transform: translate(-50%, -50%);
             z-index: 50; 
             text-align: center;
-            pointer-events: none; 
+            pointer-events: none; /* 讓點擊穿透 */
             display: none; 
+            
+            /* 預設無邊框，暫停時會透過 JS 加入 class */
+            padding: 20px 40px;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+        }
+
+        /* 暫停模式專用樣式：紅框 + 深色背景 */
+        .center-timer-overlay.timeout-mode {
+            border: 4px solid var(--red);
+            background-color: rgba(0, 0, 0, 0.9);
+            box-shadow: 0 0 30px rgba(227, 45, 45, 0.3);
         }
 
         .big-timer-val {
@@ -79,30 +84,21 @@
             line-height: 1;
             font-variant-numeric: tabular-nums;
             transition: color 0.2s;
-            /* 基礎陰影 */
-            text-shadow: 3px 3px 0px #1a1a1a, 0 10px 30px rgba(0,0,0,0.8);
+            text-shadow: 3px 3px 0px #1a1a1a;
         }
 
-        /* 顏色邏輯：使用參考代碼的色票 */
         .timer-green { color: var(--green); } 
-        .timer-purple { color: var(--purple); } 
+        .timer-red-text { color: var(--red); } /* 暫停時字體變紅 */
 
-        /* --- 呼吸霓虹紅 (使用參考代碼的 #e32d2d) --- */
+        /* --- 優化後的呼吸燈：光暈收斂 --- */
         @keyframes neon-pulse {
             0%, 100% {
-                text-shadow: 
-                    0 0 10px var(--red),
-                    0 0 20px var(--red),
-                    0 0 40px var(--red);
+                text-shadow: 0 0 5px var(--red), 0 0 15px var(--red); /* 範圍縮小 */
                 opacity: 1;
-                transform: scale(1);
             }
             50% {
-                text-shadow: 
-                    0 0 5px #990000,
-                    0 0 10px #990000;
-                opacity: 0.8; 
-                transform: scale(0.98); 
+                text-shadow: 0 0 2px #990000, 0 0 8px #990000;
+                opacity: 0.7; 
             }
         }
 
@@ -110,33 +106,25 @@
             color: var(--red);
             animation: neon-pulse 1s ease-in-out infinite; 
         }
-        /* --------------------------- */
 
         .timer-label-top {
-            font-size: 2rem;
-            color: #666;
-            margin-bottom: -10px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            font-size: 2rem; color: #666; margin-bottom: -10px;
+            text-transform: uppercase; letter-spacing: 2px;
         }
 
+        /* --- 球員區塊與標記定位 --- */
         .player-col { 
-            flex: 1; 
-            height: 100%; 
-            display: flex; 
-            flex-direction: column;
-            align-items: center; 
-            justify-content: center; 
-            position: relative; 
+            flex: 1; height: 100%; 
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center; 
+            position: relative; /* 讓絕對定位的標記以此為基準 */
         }
 
         .player-name {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 2vh;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            font-size: 2.5rem; font-weight: 700;
+            margin-bottom: 2vh; text-transform: uppercase; letter-spacing: 1px;
+            /* 用來對齊 EXT 標記的高度參考 */
+            margin-top: -10vh; 
         }
         .name-blue { color: var(--blue); }
         .name-red { color: var(--red); }
@@ -145,99 +133,75 @@
             font-size: 45vh; 
             font-weight: 900; 
             line-height: 1; 
-            color: #ffffff;
+            color: #ffffff; /* 純白 */
+            opacity: 1;     /* 不透明 */
             font-variant-numeric: tabular-nums;
-            opacity: 0.3; /* 稍微更暗一點，讓亮色計時器更突出 */
+            text-shadow: 0 5px 20px rgba(0,0,0,0.5);
         }
 
-        .status-pill {
+        /* --- 狀態標記 (EXT / TO) --- */
+        .indicator-tag {
             position: absolute;
-            bottom: 18vh; 
-            left: 50%;
-            transform: translateX(-50%);
-            background: linear-gradient(90deg, var(--yellow), var(--red));
-            padding: 10px 30px;
-            border-radius: 50px;
-            font-weight: bold;
-            font-size: 1.5rem;
-            color: #000;
-            box-shadow: 0 4px 15px rgba(227, 45, 45, 0.4);
-            display: none; 
-            z-index: 150;
-            animation: fadeIn 0.3s ease;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 900;
+            font-size: 1.8rem;
+            display: none; /* 預設隱藏 */
+            z-index: 60;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        /* 底部控制區 */
+        @keyframes popIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        /* EXT 位置：對齊名字高度 */
+        .tag-ext {
+            top: 25%; /* 大約對齊名字 */
+            background-color: var(--yellow);
+            color: #000;
+            border: 2px solid #eab308;
+        }
+
+        /* TO 位置：對齊分數中間 */
+        .tag-to {
+            top: 55%; /* 大約對齊分數 */
+            background-color: var(--purple);
+            color: #fff;
+            border: 2px solid #9333ea;
+        }
+
+        /* 左側球員 (A) 的標記位置 */
+        .pos-left { left: 30px; }
+        
+        /* 右側球員 (B) 的標記位置 */
+        .pos-right { right: 30px; }
+
+        /* --- 底部控制區 --- */
         .controls-bar { 
-            height: 14vh; 
-            padding: 0 15px 15px 15px;
-            display: flex; 
-            gap: 12px;
-            z-index: 100;
-            width: 100%;
+            height: 14vh; padding: 0 15px 15px 15px;
+            display: flex; gap: 12px; z-index: 100; width: 100%;
             border-top: 1px solid #222;
         }
-
         .btn-base {
-            border: none;
-            border-radius: 16px;
-            color: white;
-            font-size: 2.5rem;
-            font-weight: bold;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: transform 0.1s, filter 0.2s;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            height: 100%;
+            border: none; border-radius: 16px; color: white;
+            font-size: 2.5rem; font-weight: bold; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            height: 100%; transition: transform 0.1s;
         }
         .btn-base:active { transform: scale(0.96); }
-
-        .btn-minus {
-            flex: 1;
-            background-color: var(--btn-dark);
-            color: #64748b;
-            border: 1px solid #333;
-        }
-        .btn-minus:hover { background-color: #333; color: white; }
-
-        .btn-plus {
-            flex: 3;
-        }
+        .btn-minus { flex: 1; background-color: var(--btn-dark); color: #64748b; border: 1px solid #333; }
+        .btn-plus { flex: 3; }
         .plus-blue { background-color: var(--blue); }
-        .plus-blue:hover { background-color: var(--blue-hover); }
         .plus-red { background-color: var(--red); }
-        .plus-red:hover { background-color: var(--red-hover); }
-
         .center-box {
-            flex: 2;
-            background: rgba(17, 17, 17, 0.9);
-            border: 2px solid #333; 
-            border-radius: 16px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(5px);
-            height: 100%;
+            flex: 2; background: rgba(17, 17, 17, 0.9);
+            border: 2px solid #333; border-radius: 16px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
-
-        .center-label {
-            color: #888;
-            font-size: 0.9rem;
-            margin-bottom: 2px;
-        }
-
-        .center-value {
-            font-size: 3rem; 
-            font-weight: 900;
-            color: var(--yellow); /* 參考代碼中 Race To 用黃色 */
-            font-style: italic;
-            line-height: 1;
-        }
+        .center-label { color: #888; font-size: 0.9rem; margin-bottom: 2px; }
+        .center-value { font-size: 3rem; font-weight: 900; color: var(--yellow); line-height: 1; }
         
+        /* 勝者與裁判面板 (維持原樣) */
         #winner-overlay { 
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             background: radial-gradient(circle, #1a1a1a 0%, #000 100%);
@@ -257,8 +221,7 @@
             border-radius: 12px; font-size: 1.3rem; font-weight: bold; cursor: pointer; padding: 15px;
         }
         .ref-btn:active { background: #333; }
-        .btn-accent { background: #0e3a0e; border-color: var(--green); color: white; } /* 參考 Start 按鈕 */
-        .btn-warn { border-color: var(--yellow); color: var(--yellow); }
+        .btn-accent { background: #0e3a0e; border-color: var(--green); color: white; } 
 
         #config-panel { 
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
@@ -266,16 +229,8 @@
         }
         .config-item { margin-bottom: 20px; }
         .config-item label { display: block; color: #888; margin-bottom: 8px; }
-        .config-item input { 
-            background: #222; border: 1px solid #444; 
-            color: white; width: 100%; padding: 15px; font-size: 1.5rem; border-radius: 8px; text-align: center;
-        }
-        
-        #qr-overlay { 
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0,0,0,0.95); z-index: 5000; flex-direction: column; align-items: center; justify-content: center; 
-        }
-        #qrcode { padding: 15px; background: #fff; border-radius: 10px; }
+        .config-item input { background: #222; border: 1px solid #444; color: white; width: 100%; padding: 15px; font-size: 1.5rem; border-radius: 8px; text-align: center; }
+        #qr-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 5000; flex-direction: column; align-items: center; justify-content: center; }
     </style>
 </head>
 <body onclick="unlockAudio()">
@@ -286,8 +241,6 @@
             <button class="setting-btn" onclick="showQRCode()">連接裁判 | ID: <span id="display-my-id">...</span></button>
         </div>
 
-        <div id="status-indicator" class="status-pill">🔥 暫停中</div>
-
         <div class="main-stage">
             
             <div id="big-timer-layer" class="center-timer-overlay">
@@ -297,11 +250,17 @@
 
             <div class="player-col">
                 <div class="player-name name-blue">PLAYER A</div>
+                <div id="tag-ext-a" class="indicator-tag tag-ext pos-left">EXT</div>
+                <div id="tag-to-a" class="indicator-tag tag-to pos-left">T.O.</div>
+                
                 <div class="score-val" id="scoreA">0</div>
             </div>
 
             <div class="player-col">
                 <div class="player-name name-red">PLAYER B</div>
+                <div id="tag-ext-b" class="indicator-tag tag-ext pos-right">EXT</div>
+                <div id="tag-to-b" class="indicator-tag tag-to pos-right">T.O.</div>
+
                 <div class="score-val" id="scoreB">0</div>
             </div>
         </div>
@@ -309,35 +268,27 @@
         <div class="controls-bar">
             <button class="btn-base btn-minus" onclick="handleInput('scoreA-')">-</button>
             <button class="btn-base btn-plus plus-blue" onclick="handleInput('scoreA+')">+</button>
-            
-            <div class="center-box" id="race-box">
-                <div class="center-label">目標局數</div>
-                <div class="center-value" id="race-display">5</div>
-            </div>
-
+            <div class="center-box"><div class="center-label">目標局數</div><div class="center-value" id="race-display">5</div></div>
             <button class="btn-base btn-plus plus-red" onclick="handleInput('scoreB+')">+</button>
             <button class="btn-base btn-minus" onclick="handleInput('scoreB-')">-</button>
         </div>
     </div>
 
     <div id="winner-overlay" onclick="handleInput('resetAll')">
-        <div class="winner-cup">🏆</div>
-        <div class="winner-text" id="winner-name">PLAYER A WINS</div>
+        <div class="winner-cup">🏆</div><div class="winner-text" id="winner-name">PLAYER A WINS</div>
         <div style="color:#64748b; margin-top:20px;">點擊螢幕重置比賽</div>
     </div>
-
+    
     <div id="referee-panel">
         <div style="text-align: center; color: var(--green); margin-bottom: 10px; font-weight:bold;">REFEREE CONTROL</div>
         <div class="ref-grid">
-            <button class="ref-btn btn-accent" style="grid-column: span 2; height: 80px; font-size: 2rem;" onclick="handleInput('start_shot')">開始擊球 (Start)</button>
+            <button class="ref-btn btn-accent" style="grid-column: span 2; height: 80px;" onclick="handleInput('start_shot')">開始擊球 (Start)</button>
             <button class="ref-btn" onclick="handleInput('start_open')">衝球計時</button>
             <button class="ref-btn btn-warn" onclick="handleInput('pause')">暫停 / 繼續</button>
-            
             <button id="ref-extA" class="ref-btn" onclick="handleInput('extA')">A 延長</button>
             <button id="ref-extB" class="ref-btn" onclick="handleInput('extB')">B 延長</button>
             <button id="ref-toA" class="ref-btn" style="border-color:var(--purple); color:var(--purple);" onclick="handleInput('toA')">A 暫停</button>
             <button id="ref-toB" class="ref-btn" style="border-color:var(--purple); color:var(--purple);" onclick="handleInput('toB')">B 暫停</button>
-            
             <button class="ref-btn" style="background:#222" onclick="openConfig()">賽制設定</button>
             <button class="ref-btn" style="background:#222" onclick="showQRCode()">配對</button>
             <button class="ref-btn" style="grid-column: span 2; border:1px solid var(--red); color:var(--red);" onclick="if(confirm('確定重置比賽？')) handleInput('resetAll')">重置比賽 (RESET)</button>
@@ -353,11 +304,7 @@
         <button class="ref-btn" style="width:100%; height:60px; background:var(--blue); margin-top:20px;" onclick="saveConfig()">儲存設定</button>
         <button class="ref-btn" style="width:100%; height:50px; margin-top:15px; border:none; background:transparent;" onclick="document.getElementById('config-panel').style.display='none'">取消</button>
     </div>
-
-    <div id="qr-overlay" onclick="this.style.display='none'">
-        <div id="qrcode"></div>
-        <p style="margin-top:20px; color:#fff;">裁判請掃描此 QR Code</p>
-    </div>
+    <div id="qr-overlay" onclick="this.style.display='none'"><div id="qrcode" style="padding:15px; background:#fff; border-radius:10px;"></div></div>
 
     <script>
         let peer = null, mqttClient = null, audioCtx = null;
@@ -366,9 +313,7 @@
         let timeLeft = 0, timerId = null, scores = {A:0, B:0}, isPaused = false, isTimeoutMode = false;
         let usedStatus = { extA: false, extB: false, toA: false, toB: false };
 
-        function applySettings() { 
-            document.getElementById('race-display').innerText = settings.race;
-        }
+        function applySettings() { document.getElementById('race-display').innerText = settings.race; }
 
         function resetMatchState() {
             scores = {A:0, B:0};
@@ -377,14 +322,20 @@
             document.getElementById('scoreB').innerText = "0";
             if (timerId) clearInterval(timerId);
             timeLeft = 0; isPaused = false; isTimeoutMode = false;
-            if(document.getElementById('ref-extA')) ['A','B'].forEach(s => {
-                document.getElementById('ref-ext'+s).disabled = false;
-                document.getElementById('ref-to'+s).disabled = false;
+            
+            // 隱藏所有標記
+            ['a','b'].forEach(s => {
+                document.getElementById('tag-ext-'+s).style.display = 'none';
+                document.getElementById('tag-to-'+s).style.display = 'none';
+                if(document.getElementById('ref-ext'+s.toUpperCase())) {
+                    document.getElementById('ref-ext'+s.toUpperCase()).disabled = false;
+                    document.getElementById('ref-to'+s.toUpperCase()).disabled = false;
+                }
             });
-            document.getElementById('status-indicator').style.display = 'none';
+
             document.getElementById('winner-overlay').style.display = 'none';
             document.getElementById('big-timer-layer').style.display = 'none';
-            document.getElementById('race-display').innerText = settings.race;
+            updateDisplay();
         }
 
         function processCommand(cmd) {
@@ -398,9 +349,13 @@
             else if (cmd === 'pause') isPaused = !isPaused;
             else if (cmd.startsWith('score')) { updateScore(cmd.includes('scoreA') ? 'A' : 'B', cmd.includes('+') ? 1 : -1); }
             else if (cmd === 'extA' || cmd === 'extB') {
-                const side = cmd.slice(-1);
+                const side = cmd.slice(-1); // "A" or "B"
+                const sideLower = side.toLowerCase();
                 usedStatus['ext'+side] = true;
-                showStatus(`PLAYER ${side} 延長`, '#ffeb3b');
+                
+                // 顯示 EXT 標記
+                document.getElementById(`tag-ext-${sideLower}`).style.display = 'block';
+
                 const btn = document.getElementById('ref-ext'+side);
                 if(btn) btn.disabled = true;
                 speak("Extension", 0.85);
@@ -414,24 +369,21 @@
 
         function toggleTO(side) {
             if (isTimeoutMode) {
+                // 結束暫停，回到擊球
                 isTimeoutMode = false;
                 startTimer(settings.shot, '擊球計時');
-                document.getElementById('status-indicator').style.display = 'none';
             } else {
+                // 開始暫停
                 isTimeoutMode = true;
                 usedStatus['to'+side] = true;
-                showStatus(`PLAYER ${side} 暫停`, '#af52de');
+                
+                // 顯示 T.O. 標記
+                document.getElementById(`tag-to-${side.toLowerCase()}`).style.display = 'block';
+
                 const btn = document.getElementById('ref-to'+side);
                 if(btn) btn.disabled = true;
                 startTimer(settings.timeout * 60, '暫停倒數');
             }
-        }
-
-        function showStatus(text, color) {
-            const el = document.getElementById('status-indicator');
-            el.innerText = text;
-            el.style.display = 'block';
-            el.style.background = `linear-gradient(90deg, ${color}, #111)`;
         }
 
         function startTimer(sec, labelText) {
@@ -452,7 +404,6 @@
                         if(isTimeoutMode) {
                              isTimeoutMode = false; 
                              startTimer(settings.shot, '擊球計時'); 
-                             document.getElementById('status-indicator').style.display = 'none';
                         }
                     }
                 }
@@ -461,17 +412,25 @@
 
         function updateDisplay() {
             const bigVal = document.getElementById('big-timer-val');
+            const timerLayer = document.getElementById('big-timer-layer');
+            const timerLabel = document.getElementById('big-timer-label');
             
             if (isTimeoutMode) {
+                // 暫停模式：紅框、紅字
+                timerLayer.classList.add('timeout-mode');
+                bigVal.className = "big-timer-val timer-red-text";
+                
                 let mins = Math.floor(timeLeft / 60), secs = timeLeft % 60;
                 bigVal.innerText = `${mins}:${secs < 10 ? '0' + secs : secs}`;
-                bigVal.className = "big-timer-val timer-purple";
             } else {
+                // 一般模式：移除紅框
+                timerLayer.classList.remove('timeout-mode');
+                
                 bigVal.innerText = timeLeft;
                 if (timeLeft <= 5 && timeLeft > 0) {
-                    bigVal.className = "big-timer-val timer-red-neon";
+                    bigVal.className = "big-timer-val timer-red-neon"; // 倒數呼吸
                 } else {
-                    bigVal.className = "big-timer-val timer-green";
+                    bigVal.className = "big-timer-val timer-green"; // 正常綠色
                 }
                 if (timeLeft === 0) {
                    bigVal.className = "big-timer-val timer-red-neon";
@@ -487,12 +446,16 @@
                 document.getElementById('winner-overlay').style.display = 'flex';
                 speak(`Player ${t} wins`, 0.8);
             }
+            // 每局結束後，隱藏 EXT (假設 EXT 每局重置)
+            document.getElementById('tag-ext-a').style.display = 'none';
+            document.getElementById('tag-ext-b').style.display = 'none';
             usedStatus.extA = false; usedStatus.extB = false;
+            
             if(document.getElementById('ref-extA')) {
                 document.getElementById('ref-extA').disabled = false;
                 document.getElementById('ref-extB').disabled = false;
             }
-            document.getElementById('status-indicator').style.display = 'none';
+            
             if (timerId) clearInterval(timerId);
             timeLeft = 0; 
             document.getElementById('big-timer-layer').style.display = 'none';
