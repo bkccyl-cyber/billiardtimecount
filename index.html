@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>專業賽事計分板 - V5.2 Final (Match Point)</title>
+    <title>專業賽事計分板 - V5.3 Final Logic</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/simple-peer/9.11.1/simplepeer.min.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -45,7 +45,7 @@
             align-items: center; justify-content: center; width: 100%;
         }
 
-        /* --- 計時器區域 (動態位置) --- */
+        /* --- 計時器區域 --- */
         .center-timer-overlay {
             position: absolute;
             top: 50%; left: 50%;
@@ -59,12 +59,11 @@
             transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
         }
 
-        /* 暫停模式：紅框 + 移至底部 + 縮小 85% */
+        /* 暫停模式：移至底部 + 縮小 */
         .center-timer-overlay.timeout-mode {
             top: auto !important;       
             bottom: 15vh;              
             transform: translate(-50%, 0) scale(0.85); 
-            
             border: 4px solid var(--red);
             background-color: rgba(0, 0, 0, 0.95);
             box-shadow: 0 0 30px rgba(227, 45, 45, 0.3);
@@ -80,7 +79,6 @@
         .timer-green { color: var(--green); } 
         .timer-red-text { color: var(--red); }
 
-        /* 呼吸燈 (已收斂光暈) */
         @keyframes neon-pulse {
             0%, 100% { text-shadow: 0 0 5px var(--red), 0 0 15px var(--red); opacity: 1; }
             50% { text-shadow: 0 0 2px #990000, 0 0 8px #990000; opacity: 0.7; }
@@ -108,13 +106,12 @@
         .score-val { 
             font-size: 45vh; font-weight: 900; line-height: 1; color: #ffffff;
             font-variant-numeric: tabular-nums; text-shadow: 0 5px 20px rgba(0,0,0,0.5);
-            transition: color 0.3s, text-shadow 0.3s; /* 顏色轉換過渡 */
+            transition: color 0.3s, text-shadow 0.3s;
         }
 
-        /* --- 聽牌樣式 (Match Point) --- */
+        /* 聽牌樣式 */
         .score-match-point {
             color: var(--yellow) !important;
-            /* 輕微霓虹燈樣式 */
             text-shadow: 0 0 15px rgba(255, 235, 59, 0.6), 0 0 30px rgba(255, 235, 59, 0.3) !important;
         }
 
@@ -155,7 +152,7 @@
         .center-label { color: #888; font-size: 0.9rem; margin-bottom: 2px; }
         .center-value { font-size: 3rem; font-weight: 900; color: var(--yellow); line-height: 1; }
 
-        /* --- 裁判端按鈕樣式 --- */
+        /* --- 裁判端 --- */
         #referee-panel { 
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             background: #000; padding: 15px; z-index: 2000; overflow-y: auto;
@@ -167,17 +164,10 @@
             transition: all 0.2s;
         }
         .ref-btn:active { background: #333; }
-        
-        /* 鎖定按鈕樣式 */
         .ref-btn:disabled {
-            background-color: #2a2a2a !important;
-            color: #555 !important;
-            border-color: #333 !important;
-            cursor: not-allowed;
-            opacity: 0.6;
-            filter: grayscale(1);
+            background-color: #2a2a2a !important; color: #555 !important;
+            border-color: #333 !important; cursor: not-allowed; opacity: 0.6; filter: grayscale(1);
         }
-
         .btn-accent { background: #0e3a0e; border-color: var(--green); color: white; }
         .btn-warn { border-color: var(--yellow); color: var(--yellow); }
 
@@ -276,15 +266,13 @@
             scores = {A:0, B:0};
             document.getElementById('scoreA').innerText = "0";
             document.getElementById('scoreB').innerText = "0";
-            
-            // 移除聽牌樣式
             document.getElementById('scoreA').classList.remove('score-match-point');
             document.getElementById('scoreB').classList.remove('score-match-point');
 
             if (timerId) clearInterval(timerId);
             timeLeft = 0; isPaused = false; isTimeoutMode = false;
             
-            // 隱藏標記 & 解鎖按鈕
+            // 隱藏標記 & 解鎖所有按鈕
             ['a','b'].forEach(s => {
                 document.getElementById('tag-ext-'+s).style.display = 'none';
                 document.getElementById('tag-to-'+s).style.display = 'none';
@@ -305,15 +293,47 @@
                 settings = { shot: parts[0], open: parts[1], timeout: parts[2], race: parts[3] };
                 applySettings();
             }
-            else if (cmd === 'start_shot') { isTimeoutMode = false; startTimer(settings.shot, '擊球計時'); }
-            else if (cmd === 'start_open') { isTimeoutMode = false; startTimer(settings.open, '衝球計時'); }
+            else if (cmd === 'start_shot') {
+                if (isTimeoutMode) {
+                    // 如果在暫停模式下按「開始擊球」：
+                    // 1. 停止倒數
+                    // 2. 隱藏視窗
+                    // 3. 重置新局 EXT 狀態 (就像得分後一樣)
+                    // 4. 不立即開始計時
+                    if (timerId) clearInterval(timerId);
+                    timerId = null;
+                    timeLeft = 0;
+                    isTimeoutMode = false;
+                    
+                    // 隱藏計時層
+                    document.getElementById('big-timer-layer').style.display = 'none';
+                    
+                    // 重置 EXT 標記 (視為新的一局)
+                    document.getElementById('tag-ext-a').style.display = 'none';
+                    document.getElementById('tag-ext-b').style.display = 'none';
+                    if(document.getElementById('ref-extA')) {
+                        document.getElementById('ref-extA').disabled = false;
+                        document.getElementById('ref-extB').disabled = false;
+                    }
+                    
+                    updateDisplay();
+                } else {
+                    // 正常開始擊球計時
+                    isTimeoutMode = false;
+                    startTimer(settings.shot, '擊球計時');
+                }
+            }
+            else if (cmd === 'start_open') { 
+                isTimeoutMode = false; 
+                startTimer(settings.open, '衝球計時'); 
+            }
             else if (cmd === 'pause') isPaused = !isPaused;
             else if (cmd.startsWith('score')) { updateScore(cmd.includes('scoreA') ? 'A' : 'B', cmd.includes('+') ? 1 : -1); }
             else if (cmd === 'extA' || cmd === 'extB') {
                 const side = cmd.slice(-1); 
                 document.getElementById(`tag-ext-${side.toLowerCase()}`).style.display = 'block';
                 const btn = document.getElementById('ref-ext'+side);
-                if(btn) btn.disabled = true; // 鎖定
+                if(btn) btn.disabled = true;
                 
                 speak("Extension", 0.85);
                 if(!isTimeoutMode) timeLeft += settings.shot;
@@ -332,7 +352,7 @@
                 isTimeoutMode = true;
                 document.getElementById(`tag-to-${side.toLowerCase()}`).style.display = 'block';
                 const btn = document.getElementById('ref-to'+side);
-                if(btn) btn.disabled = true; // 鎖定
+                if(btn) btn.disabled = true;
                 startTimer(settings.timeout * 60, '暫停倒數');
             }
         }
@@ -362,6 +382,12 @@
             const bigVal = document.getElementById('big-timer-val');
             const timerLayer = document.getElementById('big-timer-layer');
             
+            // 如果 timeLeft 為 0 且沒有在跑計時，強制隱藏 (防止殘留)
+            if (timeLeft === 0 && !isTimeoutMode && !timerId) {
+                // 但要小心不要覆蓋掉倒數剛結束的那一瞬間，通常倒數結束會自動切換或等待
+                // 這裡主要是給 processCommand 裡強制歸零用的
+            }
+
             if (isTimeoutMode) {
                 timerLayer.classList.add('timeout-mode');
                 bigVal.className = "big-timer-val timer-red-text";
@@ -377,27 +403,19 @@
         }
 
         function updateScore(t, v) {
-            // 更新分數
             scores[t] = Math.max(0, scores[t] + v);
             const scoreEl = document.getElementById('score' + t);
             scoreEl.innerText = scores[t];
             
-            // 檢查聽牌 (Score == Race - 1)
-            // 如果當前分數是目標局數減1，顯示黃色霓虹
-            if (scores[t] === settings.race - 1) {
-                scoreEl.classList.add('score-match-point');
-            } else {
-                scoreEl.classList.remove('score-match-point');
-            }
+            if (scores[t] === settings.race - 1) scoreEl.classList.add('score-match-point');
+            else scoreEl.classList.remove('score-match-point');
 
-            // 檢查獲勝
             if (scores[t] >= settings.race) {
                 document.getElementById('winner-name').innerText = `PLAYER ${t} WINS`;
                 document.getElementById('winner-overlay').style.display = 'flex';
                 speak(`Player ${t} wins`, 0.8);
             }
             
-            // 重置 EXT 標記與按鈕
             document.getElementById('tag-ext-a').style.display = 'none';
             document.getElementById('tag-ext-b').style.display = 'none';
             if(document.getElementById('ref-extA')) {
