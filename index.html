@@ -3,20 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>專業賽事計分板 - V4.8 Breathing Neon</title>
+    <title>專業賽事計分板 - V4.9 Ref Colors</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/simple-peer/9.11.1/simplepeer.min.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     
     <style>
+        /* 採用參考代碼的配色變數 */
         :root { 
-            --bg: #020617; 
-            --blue: #2563eb; 
-            --blue-hover: #1d4ed8;
-            --red: #dc2626;  
-            --red-hover: #b91c1c;
-            --btn-dark: #1f2937; 
-            --center-border: #3b82f6;
+            --bg: #0a0e14;          /* 參考代碼背景 */
+            --blue: #326eff;        /* 參考代碼藍 */
+            --blue-hover: #2558d4;
+            --red: #e32d2d;         /* 參考代碼紅 */
+            --red-hover: #c52020;
+            --green: #00ff00;       /* 參考代碼綠 */
+            --purple: #af52de;      /* 參考代碼紫 */
+            --yellow: #ffeb3b;      /* 參考代碼黃 */
+            --btn-dark: #1a1a1a;
+            --center-border: #334155;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; -webkit-user-select: none; }
@@ -40,9 +44,9 @@
         }
         .hidden-header:hover { opacity: 1; }
         .setting-btn {
-            background: rgba(30, 41, 59, 0.8);
-            border: 1px solid #334155;
-            color: #94a3b8;
+            background: #222;
+            border: 1px solid #444;
+            color: #888;
             padding: 6px 12px;
             border-radius: 6px;
             font-size: 0.8rem;
@@ -75,20 +79,21 @@
             line-height: 1;
             font-variant-numeric: tabular-nums;
             transition: color 0.2s;
-            text-shadow: 0 5px 30px rgba(0,0,0,0.8);
+            /* 基礎陰影 */
+            text-shadow: 3px 3px 0px #1a1a1a, 0 10px 30px rgba(0,0,0,0.8);
         }
 
-        /* 顏色邏輯 */
-        .timer-green { color: #4ade80; } 
-        .timer-purple { color: #d946ef; } 
+        /* 顏色邏輯：使用參考代碼的色票 */
+        .timer-green { color: var(--green); } 
+        .timer-purple { color: var(--purple); } 
 
-        /* --- 修改部分：呼吸霓虹紅 --- */
+        /* --- 呼吸霓虹紅 (使用參考代碼的 #e32d2d) --- */
         @keyframes neon-pulse {
             0%, 100% {
                 text-shadow: 
-                    0 0 10px #ff0000,
-                    0 0 20px #ff0000,
-                    0 0 40px #ff0000;
+                    0 0 10px var(--red),
+                    0 0 20px var(--red),
+                    0 0 40px var(--red);
                 opacity: 1;
                 transform: scale(1);
             }
@@ -96,20 +101,20 @@
                 text-shadow: 
                     0 0 5px #990000,
                     0 0 10px #990000;
-                opacity: 0.85; /* 稍微變暗 */
-                transform: scale(0.98); /* 稍微縮小 */
+                opacity: 0.8; 
+                transform: scale(0.98); 
             }
         }
 
         .timer-red-neon { 
-            color: #ff0000;
-            animation: neon-pulse 1s ease-in-out infinite; /* 1秒循環一次呼吸 */
+            color: var(--red);
+            animation: neon-pulse 1s ease-in-out infinite; 
         }
         /* --------------------------- */
 
         .timer-label-top {
             font-size: 2rem;
-            color: #94a3b8;
+            color: #666;
             margin-bottom: -10px;
             text-transform: uppercase;
             letter-spacing: 2px;
@@ -133,8 +138,8 @@
             text-transform: uppercase;
             letter-spacing: 1px;
         }
-        .name-blue { color: #60a5fa; }
-        .name-red { color: #f87171; }
+        .name-blue { color: var(--blue); }
+        .name-red { color: var(--red); }
 
         .score-val { 
             font-size: 45vh; 
@@ -142,7 +147,7 @@
             line-height: 1; 
             color: #ffffff;
             font-variant-numeric: tabular-nums;
-            opacity: 0.4; 
+            opacity: 0.3; /* 稍微更暗一點，讓亮色計時器更突出 */
         }
 
         .status-pill {
@@ -150,12 +155,13 @@
             bottom: 18vh; 
             left: 50%;
             transform: translateX(-50%);
-            background: linear-gradient(90deg, #f59e0b, #ef4444);
+            background: linear-gradient(90deg, var(--yellow), var(--red));
             padding: 10px 30px;
             border-radius: 50px;
             font-weight: bold;
             font-size: 1.5rem;
-            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+            color: #000;
+            box-shadow: 0 4px 15px rgba(227, 45, 45, 0.4);
             display: none; 
             z-index: 150;
             animation: fadeIn 0.3s ease;
@@ -169,6 +175,7 @@
             gap: 12px;
             z-index: 100;
             width: 100%;
+            border-top: 1px solid #222;
         }
 
         .btn-base {
@@ -191,8 +198,9 @@
             flex: 1;
             background-color: var(--btn-dark);
             color: #64748b;
+            border: 1px solid #333;
         }
-        .btn-minus:hover { background-color: #334155; color: white; }
+        .btn-minus:hover { background-color: #333; color: white; }
 
         .btn-plus {
             flex: 3;
@@ -204,20 +212,20 @@
 
         .center-box {
             flex: 2;
-            background: rgba(15, 23, 42, 0.9);
-            border: 2px solid var(--center-border); 
+            background: rgba(17, 17, 17, 0.9);
+            border: 2px solid #333; 
             border-radius: 16px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 0 20px rgba(59, 130, 246, 0.1);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
             backdrop-filter: blur(5px);
             height: 100%;
         }
 
         .center-label {
-            color: #64748b;
+            color: #888;
             font-size: 0.9rem;
             margin-bottom: 2px;
         }
@@ -225,41 +233,41 @@
         .center-value {
             font-size: 3rem; 
             font-weight: 900;
-            color: #3b82f6;
+            color: var(--yellow); /* 參考代碼中 Race To 用黃色 */
             font-style: italic;
             line-height: 1;
         }
         
         #winner-overlay { 
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(2, 6, 23, 0.98); 
+            background: radial-gradient(circle, #1a1a1a 0%, #000 100%);
             z-index: 9999; flex-direction: column; align-items: center; justify-content: center; 
         }
-        .winner-cup { font-size: 15rem; margin-bottom: 20px; filter: drop-shadow(0 0 50px gold); animation: bounce 2s infinite; }
+        .winner-cup { font-size: 15rem; margin-bottom: 20px; filter: drop-shadow(0 0 30px gold); animation: bounce 2s infinite; }
         .winner-text { font-size: 4rem; font-weight: 900; color: white; }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
 
         #referee-panel { 
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: #0f172a; padding: 15px; z-index: 2000; overflow-y: auto;
+            background: #000; padding: 15px; z-index: 2000; overflow-y: auto;
         }
         .ref-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; padding-bottom: 40px; }
         .ref-btn { 
-            background: #1e293b; border: 1px solid #334155; color: #e2e8f0; 
+            background: #1a1a1a; border: 1px solid #333; color: #e2e8f0; 
             border-radius: 12px; font-size: 1.3rem; font-weight: bold; cursor: pointer; padding: 15px;
         }
-        .ref-btn:active { background: #334155; }
-        .btn-accent { background: #0f766e; border-color: #14b8a6; color: white; }
-        .btn-warn { border-color: #f59e0b; color: #f59e0b; }
+        .ref-btn:active { background: #333; }
+        .btn-accent { background: #0e3a0e; border-color: var(--green); color: white; } /* 參考 Start 按鈕 */
+        .btn-warn { border-color: var(--yellow); color: var(--yellow); }
 
         #config-panel { 
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: #020617; z-index: 4000; padding: 30px; 
+            background: #111; z-index: 4000; padding: 30px; 
         }
         .config-item { margin-bottom: 20px; }
-        .config-item label { display: block; color: #94a3b8; margin-bottom: 8px; }
+        .config-item label { display: block; color: #888; margin-bottom: 8px; }
         .config-item input { 
-            background: #1e293b; border: 1px solid #334155; 
+            background: #222; border: 1px solid #444; 
             color: white; width: 100%; padding: 15px; font-size: 1.5rem; border-radius: 8px; text-align: center;
         }
         
@@ -319,7 +327,7 @@
     </div>
 
     <div id="referee-panel">
-        <div style="text-align: center; color: #94a3b8; margin-bottom: 10px; font-weight:bold;">REFEREE CONTROL</div>
+        <div style="text-align: center; color: var(--green); margin-bottom: 10px; font-weight:bold;">REFEREE CONTROL</div>
         <div class="ref-grid">
             <button class="ref-btn btn-accent" style="grid-column: span 2; height: 80px; font-size: 2rem;" onclick="handleInput('start_shot')">開始擊球 (Start)</button>
             <button class="ref-btn" onclick="handleInput('start_open')">衝球計時</button>
@@ -327,22 +335,22 @@
             
             <button id="ref-extA" class="ref-btn" onclick="handleInput('extA')">A 延長</button>
             <button id="ref-extB" class="ref-btn" onclick="handleInput('extB')">B 延長</button>
-            <button id="ref-toA" class="ref-btn" style="border-color:#a855f7; color:#a855f7;" onclick="handleInput('toA')">A 暫停</button>
-            <button id="ref-toB" class="ref-btn" style="border-color:#a855f7; color:#a855f7;" onclick="handleInput('toB')">B 暫停</button>
+            <button id="ref-toA" class="ref-btn" style="border-color:var(--purple); color:var(--purple);" onclick="handleInput('toA')">A 暫停</button>
+            <button id="ref-toB" class="ref-btn" style="border-color:var(--purple); color:var(--purple);" onclick="handleInput('toB')">B 暫停</button>
             
-            <button class="ref-btn" style="background:#0f172a" onclick="openConfig()">賽制設定</button>
-            <button class="ref-btn" style="background:#0f172a" onclick="showQRCode()">配對</button>
-            <button class="ref-btn" style="grid-column: span 2; border:1px solid #ef4444; color:#ef4444;" onclick="if(confirm('確定重置比賽？')) handleInput('resetAll')">重置比賽 (RESET)</button>
+            <button class="ref-btn" style="background:#222" onclick="openConfig()">賽制設定</button>
+            <button class="ref-btn" style="background:#222" onclick="showQRCode()">配對</button>
+            <button class="ref-btn" style="grid-column: span 2; border:1px solid var(--red); color:var(--red);" onclick="if(confirm('確定重置比賽？')) handleInput('resetAll')">重置比賽 (RESET)</button>
         </div>
     </div>
 
     <div id="config-panel">
-        <h2 style="margin-bottom:30px; color:#fff; text-align:center;">賽制設定</h2>
+        <h2 style="margin-bottom:30px; color:var(--yellow); text-align:center;">賽制設定</h2>
         <div class="config-item"><label>擊球秒數 (Shot)</label><input type="number" id="cfg-shot" value="30"></div>
         <div class="config-item"><label>衝球秒數 (Open)</label><input type="number" id="cfg-open" value="60"></div>
         <div class="config-item"><label>暫停分鐘 (Timeout)</label><input type="number" id="cfg-to" value="5"></div>
         <div class="config-item"><label>搶局數 (Race To)</label><input type="number" id="cfg-race" value="5"></div>
-        <button class="ref-btn btn-accent" style="width:100%; height:60px; margin-top:20px;" onclick="saveConfig()">儲存設定</button>
+        <button class="ref-btn" style="width:100%; height:60px; background:var(--blue); margin-top:20px;" onclick="saveConfig()">儲存設定</button>
         <button class="ref-btn" style="width:100%; height:50px; margin-top:15px; border:none; background:transparent;" onclick="document.getElementById('config-panel').style.display='none'">取消</button>
     </div>
 
@@ -392,7 +400,7 @@
             else if (cmd === 'extA' || cmd === 'extB') {
                 const side = cmd.slice(-1);
                 usedStatus['ext'+side] = true;
-                showStatus(`PLAYER ${side} 延長`, '#fbbf24');
+                showStatus(`PLAYER ${side} 延長`, '#ffeb3b');
                 const btn = document.getElementById('ref-ext'+side);
                 if(btn) btn.disabled = true;
                 speak("Extension", 0.85);
@@ -412,7 +420,7 @@
             } else {
                 isTimeoutMode = true;
                 usedStatus['to'+side] = true;
-                showStatus(`PLAYER ${side} 暫停`, '#d946ef');
+                showStatus(`PLAYER ${side} 暫停`, '#af52de');
                 const btn = document.getElementById('ref-to'+side);
                 if(btn) btn.disabled = true;
                 startTimer(settings.timeout * 60, '暫停倒數');
@@ -423,7 +431,7 @@
             const el = document.getElementById('status-indicator');
             el.innerText = text;
             el.style.display = 'block';
-            el.style.background = `linear-gradient(90deg, ${color}, #333)`;
+            el.style.background = `linear-gradient(90deg, ${color}, #111)`;
         }
 
         function startTimer(sec, labelText) {
