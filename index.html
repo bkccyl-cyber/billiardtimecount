@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>專業賽事計分板 - V4.5 Bottom Layout</title>
+    <title>專業賽事計分板 - V4.7 Center Timer</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/simple-peer/9.11.1/simplepeer.min.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -31,7 +31,7 @@
             overflow: hidden; 
         }
 
-        /* 隱藏的設定按鈕區 (透明懸浮在左上角) */
+        /* 隱藏的設定按鈕區 */
         .hidden-header {
             position: absolute;
             top: 10px; left: 10px;
@@ -58,6 +58,49 @@
             align-items: center;
             justify-content: center;
         }
+
+        /* --- 新增：中央大計時器 --- */
+        .center-timer-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 50; /* 在分數之上，但在彈出視窗之下 */
+            text-align: center;
+            pointer-events: none; /* 讓點擊可以穿透到下方 */
+            display: none; /* 預設隱藏，計時開始時顯示 */
+        }
+
+        .big-timer-val {
+            font-size: 25vh; /* 約為原本底部數字(3rem/6vh)的 4 倍大 */
+            font-weight: 900;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+            transition: color 0.2s;
+            text-shadow: 0 5px 30px rgba(0,0,0,0.8); /* 增加陰影確保在數字上清晰 */
+        }
+
+        /* 顏色邏輯 */
+        .timer-green { color: #4ade80; } /* 一般綠色 */
+        .timer-red-neon { 
+            color: #ff0000;
+            text-shadow: 
+                0 0 10px #ff0000,
+                0 0 20px #ff0000,
+                0 0 40px #ff0000; /* 紅色霓虹光暈 */
+        }
+        .timer-purple { color: #d946ef; } /* 暫停時用紫色 */
+
+        .timer-label-top {
+            font-size: 2rem;
+            color: #94a3b8;
+            margin-bottom: -10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+        }
+
+        /* ----------------------- */
         
         .player-col { 
             flex: 1; 
@@ -65,7 +108,7 @@
             display: flex; 
             flex-direction: column;
             align-items: center; 
-            justify-content: center; /* 垂直置中 */
+            justify-content: center; 
             position: relative; 
         }
 
@@ -79,19 +122,19 @@
         .name-blue { color: #60a5fa; }
         .name-red { color: #f87171; }
 
-        /* 巨大分數 */
         .score-val { 
-            font-size: 45vh; /* 字體加大，因為移除了標題和勝場 */
+            font-size: 45vh; 
             font-weight: 900; 
             line-height: 1; 
             color: #ffffff;
             font-variant-numeric: tabular-nums;
+            opacity: 0.4; /* 稍微讓分數變暗一點點，凸顯中間的計時器，或是保持原樣 */
         }
 
-        /* 狀態膠囊 (暫停/延長) - 懸浮在底部按鈕上方 */
+        /* 狀態膠囊 */
         .status-pill {
             position: absolute;
-            bottom: 18vh; /* 位於底部控制列上方 */
+            bottom: 18vh; 
             left: 50%;
             transform: translateX(-50%);
             background: linear-gradient(90deg, #f59e0b, #ef4444);
@@ -105,9 +148,9 @@
             animation: fadeIn 0.3s ease;
         }
 
-        /* 底部控制區 - Grid/Flex 佈局 */
+        /* 底部控制區 */
         .controls-bar { 
-            height: 14vh; /* 高度調整 (約原本90%) */
+            height: 14vh; 
             padding: 0 15px 15px 15px;
             display: flex; 
             gap: 12px;
@@ -115,7 +158,6 @@
             width: 100%;
         }
 
-        /* 通用按鈕樣式 */
         .btn-base {
             border: none;
             border-radius: 16px;
@@ -132,7 +174,6 @@
         }
         .btn-base:active { transform: scale(0.96); }
 
-        /* 1. 減號按鈕 (佔比 1) */
         .btn-minus {
             flex: 1;
             background-color: var(--btn-dark);
@@ -140,7 +181,6 @@
         }
         .btn-minus:hover { background-color: #334155; color: white; }
 
-        /* 2. 加號按鈕 (佔比 3) */
         .btn-plus {
             flex: 3;
         }
@@ -149,11 +189,11 @@
         .plus-red { background-color: var(--red); }
         .plus-red:hover { background-color: var(--red-hover); }
 
-        /* 3. 中間資訊框 (佔比 2) - 移至底部 */
+        /* 中間資訊框 - 現在只顯示目標局數 */
         .center-box {
             flex: 2;
             background: rgba(15, 23, 42, 0.9);
-            border: 2px solid var(--center-border); /* 保持原本藍框 */
+            border: 2px solid var(--center-border); 
             border-radius: 16px;
             display: flex;
             flex-direction: column;
@@ -171,15 +211,14 @@
         }
 
         .center-value {
-            font-size: 3rem; /* 適應底部高度 */
+            font-size: 3rem; 
             font-weight: 900;
             color: #3b82f6;
             font-style: italic;
             line-height: 1;
         }
         
-        .timer-running .center-value { color: #4ade80; }
-        .timer-warning .center-value { color: #ef4444; }
+        /* 移除之前底部框變色的 CSS，因為現在獨立了 */
 
         /* 冠軍畫面 */
         #winner-overlay { 
@@ -235,6 +274,12 @@
         <div id="status-indicator" class="status-pill">🔥 暫停中</div>
 
         <div class="main-stage">
+            
+            <div id="big-timer-layer" class="center-timer-overlay">
+                <div id="big-timer-label" class="timer-label-top">擊球計時</div>
+                <div id="big-timer-val" class="big-timer-val timer-green">30</div>
+            </div>
+
             <div class="player-col">
                 <div class="player-name name-blue">PLAYER A</div>
                 <div class="score-val" id="scoreA">0</div>
@@ -251,9 +296,9 @@
             
             <button class="btn-base btn-plus plus-blue" onclick="handleInput('scoreA+')">+</button>
             
-            <div class="center-box" id="timer-box">
-                <div class="center-label" id="center-label">目標局數</div>
-                <div class="center-value" id="timer-display">5</div>
+            <div class="center-box" id="race-box">
+                <div class="center-label">目標局數</div>
+                <div class="center-value" id="race-display">5</div>
             </div>
 
             <button class="btn-base btn-plus plus-red" onclick="handleInput('scoreB+')">+</button>
@@ -310,10 +355,8 @@
         let usedStatus = { extA: false, extB: false, toA: false, toB: false };
 
         function applySettings() { 
-            if(timeLeft === 0 && !isTimeoutMode) {
-                document.getElementById('center-label').innerText = "目標局數";
-                document.getElementById('timer-display').innerText = settings.race;
-            }
+            // 更新底部框的「目標局數」
+            document.getElementById('race-display').innerText = settings.race;
         }
 
         function resetMatchState() {
@@ -332,11 +375,11 @@
             });
 
             document.getElementById('status-indicator').style.display = 'none';
-            document.getElementById('timer-box').classList.remove('timer-running', 'timer-warning');
-            document.getElementById('center-label').innerText = "目標局數";
-            document.getElementById('timer-display').innerText = settings.race;
-            document.getElementById('timer-display').style.color = "#3b82f6";
             document.getElementById('winner-overlay').style.display = 'none';
+            
+            // 重置中間大計時器
+            document.getElementById('big-timer-layer').style.display = 'none'; // 隱藏大計時器
+            document.getElementById('race-display').innerText = settings.race;
         }
 
         function processCommand(cmd) {
@@ -389,9 +432,13 @@
         function startTimer(sec, labelText) {
             if (timerId) clearInterval(timerId);
             timeLeft = sec; isPaused = false;
-            document.getElementById('center-label').innerText = labelText;
-            document.getElementById('timer-box').classList.add('timer-running');
+            
+            // 顯示中間大計時器
+            document.getElementById('big-timer-layer').style.display = 'block';
+            document.getElementById('big-timer-label').innerText = labelText;
+            
             updateDisplay();
+            
             timerId = setInterval(() => {
                 if (!isPaused && timeLeft > 0) {
                     timeLeft--;
@@ -411,28 +458,26 @@
         }
 
         function updateDisplay() {
-            const d = document.getElementById('timer-display');
-            const box = document.getElementById('timer-box');
+            // 這個函數現在只更新中央大計時器，底部目標局數不動
+            const bigVal = document.getElementById('big-timer-val');
             
             if (isTimeoutMode) {
                 let mins = Math.floor(timeLeft / 60), secs = timeLeft % 60;
-                d.innerText = `${mins}:${secs < 10 ? '0' + secs : secs}`;
-                d.style.color = "#d946ef"; 
+                bigVal.innerText = `${mins}:${secs < 10 ? '0' + secs : secs}`;
+                bigVal.className = "big-timer-val timer-purple"; // 暫停用紫色
             } else {
-                d.innerText = timeLeft;
-                if (timeLeft <= 10) {
-                    box.classList.add('timer-warning');
-                    d.style.color = "#ef4444";
-                } else {
-                    box.classList.remove('timer-warning');
-                    d.style.color = "#4ade80";
-                }
+                bigVal.innerText = timeLeft;
                 
+                // 顏色邏輯：剩餘 5 秒內變紅色 + 霓虹，否則綠色
+                if (timeLeft <= 5 && timeLeft > 0) {
+                    bigVal.className = "big-timer-val timer-red-neon";
+                } else {
+                    bigVal.className = "big-timer-val timer-green";
+                }
+
                 if (timeLeft === 0) {
-                    box.classList.remove('timer-running', 'timer-warning');
-                    document.getElementById('center-label').innerText = "目標局數";
-                    d.innerText = settings.race;
-                    d.style.color = "#3b82f6";
+                   // 時間到維持紅色 0，或可以選擇隱藏
+                   bigVal.className = "big-timer-val timer-red-neon";
                 }
             }
         }
@@ -455,7 +500,9 @@
             document.getElementById('status-indicator').style.display = 'none';
             if (timerId) clearInterval(timerId);
             timeLeft = 0; 
-            updateDisplay();
+            
+            // 隱藏大計時器
+            document.getElementById('big-timer-layer').style.display = 'none';
         }
 
         // --- 系統功能 ---
